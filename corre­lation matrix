@@ -1,0 +1,62 @@
+import numpy as np  
+from scipy.integrate import odeint  
+from scipy.stats import pearsonr  
+  
+# Lorenz系统的参数  
+sigma = 10.0  
+beta = 8.0 / 3.0  
+rho = 28.0  
+  
+# Lorenz系统的微分方程  
+def lorenz_attractor(w, t, sigma=sigma, beta=beta, rho=rho):  
+    x, y, z = w  
+    return [sigma * (y - x), x * (rho - z) - y, x * y - beta * z]  
+  
+# 初始条件  
+w0 = [1.0, 1.0, 1.0]  
+  
+# 时间点（足够长以获取至少100个长度为100的子段）  
+t = np.arange(0, 10100, 0.1)  # 确保有足够的点来划分100个子段  
+  
+# 模拟Lorenz系统  
+solution = odeint(lorenz_attractor, w0, t)  
+x_values = solution[:, 0]  
+y_values = solution[:, 1]  
+z_values = solution[:, 2]  
+  
+# 滑动窗口长度  
+window_size = 100  
+step_size = 1  # 滑动窗口的步长，这里设为1  
+num_segments = 100  # 总共要划分的子段数量  
+  
+# 初始化一个用于存储所有子段相关性的列表  
+all_correlations = []  
+  
+# 滑动窗口遍历时间序列  
+for i in range(0, len(t) - window_size + 1, step_size):  
+    window_x = x_values[i:i+window_size]  
+    window_y = y_values[i:i+window_size]  
+    window_z = z_values[i:i+window_size]  
+      
+    # 计算皮尔逊相关性  
+    corr_xx = pearsonr(window_x, window_x)[0]  
+    corr_xy = pearsonr(window_x, window_y)[0]  
+    corr_xz = pearsonr(window_x, window_z)[0]  
+    corr_yx = corr_xy  # 对称性  
+    corr_yy = pearsonr(window_y, window_y)[0]  
+    corr_yz = pearsonr(window_y, window_z)[0]  
+    corr_zx = corr_xz  # 对称性  
+    corr_zy = corr_yz  # 对称性  
+    corr_zz = pearsonr(window_z, window_z)[0]  
+      
+    # 将当前子段的相关性存储为一个数组  
+    current_correlations = [corr_xx, corr_xy, corr_xz, corr_yx, corr_yy, corr_yz, corr_zx, corr_zy, corr_zz]  
+    all_correlations.append(current_correlations)  
+  
+# 将所有子段的相关性转换为NumPy数组  
+correlation_matrices = np.array(all_correlations)  
+  
+# 打印前10个子段的相关性矩阵（即使有些值是重复的）  
+print("前10个子段的相关性矩阵:")  
+for i in range(10):  
+    print(correlation_matrices[i, :])
