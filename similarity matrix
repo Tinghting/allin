@@ -1,0 +1,29 @@
+import numpy as np
+from scipy.spatial.distance import cosine
+import pandas as pd
+
+# 假设我们有一个包含100个3阶矩阵的列表
+np.random.seed(0)  # 为了可复现性
+matrices = [np.random.rand(3, 3) for _ in range(100)]
+
+# 使用弗拉算子（flatten操作）将每个矩阵转换为一维向量
+vectors = [matrix.flatten() for matrix in matrices]
+
+# 初始化一个100x100的距离矩阵
+distance_matrix = np.zeros((100, 100))
+
+# 计算所有节点对之间的余弦距离
+for i in range(100):
+    for j in range(100):
+        if i != j:
+            distance = cosine(vectors[i], vectors[j])
+            distance_matrix[i, j] = distance
+            distance_matrix[j, i] = distance  # 由于距离矩阵是对称的，所以也填充下三角矩阵
+
+# 将距离矩阵转换为pandas DataFrame
+df = pd.DataFrame(distance_matrix, index=range(100), columns=range(100))
+
+# 将DataFrame保存到CSV文件
+df.to_csv('distance_matrix.csv')
+
+print("Distance matrix saved to 'distance_matrix.csv'.")
