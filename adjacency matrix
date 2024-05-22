@@ -1,0 +1,35 @@
+import numpy as np
+from scipy.spatial.distance import cosine
+import pandas as pd
+
+# 生成100个随机的3阶矩阵
+np.random.seed(0)  # 设置随机数种子以确保结果可复现
+matrices = [np.random.rand(3, 3) for _ in range(100)]
+
+# 使用flatten操作将3阶矩阵转换为一维数组（弗拉算子）
+vectors = [matrix.flatten() for matrix in matrices]
+
+# 初始化100x100的距离矩阵
+distance_matrix = np.zeros((100, 100))
+
+# 计算节点间的余弦距离并填充距离矩阵
+for i in range(100):
+    for j in range(i + 1, 100):
+        dist = cosine(vectors[i], vectors[j])
+        distance_matrix[i, j] = dist
+        distance_matrix[j, i] = dist  # 利用距离矩阵的对称性
+
+# 找到距离矩阵中的最大值
+max_distance = distance_matrix.max()
+print(f"Maximum cosine distance: {max_distance}")
+
+# 根据与0.55的比较将距离矩阵中的值转换为0或1
+thresholded_matrix = (distance_matrix > 0.55).astype(int)
+
+# 将阈值化后的矩阵转换为DataFrame
+df = pd.DataFrame(thresholded_matrix)
+
+# 将DataFrame保存为CSV文件
+df.to_csv('thresholded_cosine_distance_matrix.csv', index=False, header=False)
+
+print("Thresholded cosine distance matrix saved to 'thresholded_cosine_distance_matrix.csv'.")
