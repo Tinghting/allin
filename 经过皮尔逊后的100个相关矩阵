@@ -1,0 +1,53 @@
+import numpy as np
+from scipy.integrate import odeint
+from scipy.stats import pearsonr
+
+# Lorenz 系统的参数
+sigma = 10.0
+beta = 8.0 / 3.0
+rho = 28.0
+
+
+# Lorenz 系统的微分方程
+def lorenz_system(w, t, sigma=sigma, beta=beta, rho=rho):
+    x, y, z = w
+    return [sigma * (y - x), x * (rho - z) - y, x * y - beta * z]
+
+
+# 初始条件
+w0 = [1.0, 1.0, 1.0]
+
+# 时间点（假设时间间隔为0.01，因为我们后面要取滑动窗口长度为100，时间间隔为100）
+t = np.arange(0.0, 1000.0, 0.01)
+
+# 模拟 Lorenz 系统
+solution = odeint(lorenz_system, w0, t)
+
+# 滑动窗口长度和步长
+window_length = 100  # 时间点数量
+step = 100  # 滑动步长
+
+# 初始化相关矩阵列表
+correlation_matrices = []
+
+# 滑动窗口计算皮尔逊相关系数
+for i in range(0, len(t) - window_length + 1, step):
+    window_data = solution[i:i + window_length, :]
+    correlation_matrix = np.zeros((3, 3))
+
+    # 计算并填充相关矩阵
+    for j in range(3):
+        for k in range(j, 3):  # 只计算上三角矩阵，因为皮尔逊系数是对称的
+            corr, _ = pearsonr(window_data[:, j], window_data[:, k])
+            correlation_matrix[j, k] = corr
+            if j != k:  # 填充下三角矩阵的对称部分
+                correlation_matrix[k, j] = corr
+
+                # 将相关矩阵添加到列表中
+    correlation_matrices.append(correlation_matrix)
+
+# 打印前10个子段的相关矩阵（如果有100个或更多）
+for i, corr_matrix in enumerate(correlation_matrices[:100]):
+    print(f"Window {i + 1}:")
+    print(corr_matrix)
+    print()
