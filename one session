@@ -1,94 +1,66 @@
 import numpy as np
+from matplotlib import pyplot as plt
 from scipy.integrate import odeint
-from scipy.stats import pearsonr
-import pandas as pd
 from scipy.spatial.distance import cosine
+import pandas as pd
 import networkx as nx
-# Lorenz系统的参数
-sigma = 10.0
-beta = 8.0 / 3.0
-rho = 28.0
 
 
-# Lorenz系统的微分方程
-def lorenz_attractor(w, t, sigma=sigma, beta=beta, rho=rho):
+# Lorenz系统的定义
+def lorenz_deriv(w, t, sigma=10.0, beta=8.0 / 3.0, rho=28.0):
     x, y, z = w
     return [sigma * (y - x), x * (rho - z) - y, x * y - beta * z]
 
 
-# 初始条件
-w0 = [1.0, 1.0, 1.0]
-
-# 时间点（足够长以获取至少100个长度为100的子段）
-t = np.arange(0, 10000, 0.01)  # 确保时间步长足够小以产生足够的点
+# 初始条件和时间跨度
+initial_state = [1.0, 1.0, 1.0]
+t = np.arange(0, 10000, 1)  # 10000个时间点
 
 # 模拟Lorenz系统
-solution = odeint(lorenz_attractor, w0, t)
-x_values = solution[:, 0]
-y_values = solution[:, 1]
-z_values = solution[:, 2]
+lorenz = odeint(lorenz_deriv, initial_state, t)
 
-# 滑动窗口长度
-window_size = 100
-step_size = 1  # 滑动窗口的步长，这里设为1
-num_segments = 100  # 总共要划分的子段数量
+# 滑动窗口大小和子段数量
+window_size = 100  # 每个子段包含100个时间点
+num_segments = 100  # 总共100个子段
+step_size = int(np.ceil(lorenz.shape[0] / num_segments))
 
-# 初始化一个用于存储所有子段相关性的列表
-all_correlations = []
+# 存储相关性矩阵的列表
+correlation_matrices = []
 
-# 滑动窗口遍历时间序列
-for i in range(0, len(t) - window_size + 1, step_size):
-    window_x = x_values[i:i + window_size]
-    window_y = y_values[i:i + window_size]
-    window_z = z_values[i:i + window_size]
+# 滑动窗口分析
+for i in range(0, lorenz.shape[0] - window_size + 1, step_size):
+    segment = lorenz[i:i + window_size, :]
+    # 计算3x3的相关性矩阵
+    correlation_matrix = np.corrcoef(segment, rowvar=False)
+    correlation_matrices.append(correlation_matrix)
 
-    # 计算皮尔逊相关性
-    corr_xx = pearsonr(window_x, window_x)[0]
-    corr_xy = pearsonr(window_x, window_y)[0]
-    corr_xz = pearsonr(window_x, window_z)[0]
-    corr_yx = corr_xy  # 对称性
-    corr_yy = pearsonr(window_y, window_y)[0]
-    corr_yz = pearsonr(window_y, window_z)[0]
-    corr_zx = corr_xz  # 对称性
-    corr_zy = corr_yz  # 对称性
-    corr_zz = pearsonr(window_z, window_z)[0]
+# 确保我们有100个矩阵
+correlation_matrices = correlation_matrices[:100]
 
-    # 将当前子段的相关性存储为一个数组
-    current_correlations = [corr_xx, corr_xy, corr_xz,corr_yx, corr_yy,corr_yz,corr_zx, corr_zy, corr_zz,]
-    # 我们不需要存储yx, zx, zy，因为它们和xy, xz, yz是相同的
-    all_correlations.append(current_correlations)
-
-# 将所有子段的相关性转换为NumPy数组
-correlation_matrices = np.array(all_correlations)
-# 使用弗拉算子（flatten操作）将每个矩阵转换为一维向量
-vectors = [matrix.flatten() for matrix in correlation_matrices]
-
-# 初始化100x100的距离矩阵
-distance_matrix = np.zeros((100, 100))
-
-# 计算节点间的余弦距离并填充距离矩阵
-for i in range(100):
-    for j in range(i + 1, 100):
-        dist = cosine(vectors[i], vectors[j])
+# 计算余弦距离矩阵
+distance_matrix = np.zeros((len(correlation_matrices), len(correlation_matrices)))
+for i in range(len(correlation_matrices)):
+    for j in range(len(correlation_matrices)):
+        # 使用向量化（flatten）后的矩阵计算余弦距离
+        dist = cosine(correlation_matrices[i].flatten(), correlation_matrices[j].flatten())
         distance_matrix[i, j] = dist
-        distance_matrix[j, i] = dist  # 利用距离矩阵的对称性
 
-# 将距离矩阵二值化：大于0.55的设为1，小于或等于0.55的设为0
-binary_matrix = (distance_matrix > 0.55).astype(int)
+    # 找到距离矩阵中的最大值
+max_distance = distance_matrix.max()
 
-# 将二值矩阵保存为CSV文件
+# 将距离矩阵二值化
+binary_matrix = (distance_matrix > 0.2 * max_distance).astype(int)
+
+# 将二值化矩阵保存为CSV文件
 pd.DataFrame(binary_matrix).to_csv('binary_cosine_distance_matrix.csv', index=False, header=False)
 
-# 使用networkx从二值矩阵创建无向图
+# 使用二值化矩阵构建复杂网络
 G = nx.from_numpy_array(binary_matrix)
 
-# 打印图的信息
+# 打印网络的基本信息
 print("Number of nodes in the graph:", G.number_of_nodes())
 print("Number of edges in the graph:", G.number_of_edges())
 
-# 如果你想要查看图的图形表示，可以使用matplotlib
-import matplotlib.pyplot as plt
 
-# 使用networkx的内置函数来绘制图（可能对于大型图不够清晰）
-nx.draw(G, with_labels=True, node_size=500, font_size=8)
-plt.show()
+nx.draw(G, with_labels=True)
+plt.show()  # 需要先导入matplotlib.pyplot as plt
