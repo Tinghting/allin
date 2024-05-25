@@ -1,0 +1,16 @@
+import pandas as pd
+
+# 读取原始CSV文件，设置header=None表示第一行不是列名
+df = pd.read_csv('cosine_distances.csv', header=None)
+
+# 假设整个DataFrame都是数值型，直接对整个DataFrame应用条件
+df_binary = df.applymap(lambda x: 0 if isinstance(x, (int, float)) and x < 0.93 else 1)
+
+# 将新的DataFrame写入到新的CSV文件中，因为header=None，所以需要指定列名（如果需要的话）
+# 如果你不需要列名，可以保持header=False
+df_binary.to_csv('binary_values.csv', index=False, header=False)
+
+
+
+# 打印结果以确认（可选）
+print(df_binary)
