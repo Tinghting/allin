@@ -1,0 +1,57 @@
+import networkx as nx
+import pandas as pd
+from matplotlib import pyplot as plt
+from collections import Counter
+import community as community_louvain
+import matplotlib.cm as cm
+# 读取CSV文件，假设CSV文件有100行和100列
+df = pd.read_csv('modified_adjacency_matrix.csv', header=None)  # header=None 假设没有标题行
+
+# 创建一个空的图对象
+G = nx.Graph()
+
+# 遍历DataFrame，添加边到图中
+# 假设CSV文件中的索引和列都是基于0的整数，表示节点编号
+for i in range(df.shape[0]):
+    for j in range(df.shape[1]):
+        if df.iloc[i, j] == 1:  # 如果矩阵中的值为1，表示存在边
+            G.add_edge(i, j)  # 添加边到图中，使用行索引和列索引作为节点
+
+#使用鲁万算法进行社区划分
+partition = community_louvain.best_partition(G)
+
+# 绘制网络图
+pos = nx.spring_layout(G)  # 使用spring布局算法
+cmap = cm.get_cmap('viridis', max(partition.values()) + 1)  # 创建一个颜色映射
+
+# 绘制节点，颜色根据社区划分
+nx.draw_networkx_nodes(G, pos, partition.keys(), node_size=10, cmap=cmap, node_color=list(partition.values()))
+
+# 绘制边
+nx.draw_networkx_edges(G, pos, alpha=0.1)
+
+# 显示图例（可选，根据你的需求调整）
+legend = []
+for community in set(partition.values()):
+    color = cmap(community)
+    legend.append(plt.scatter([], [], c=[color], label=f'Community {community}', s=10))
+plt.legend(handles=legend, loc='upper right', bbox_to_anchor=(1.2, 1))
+
+# 展示图形
+plt.axis('off')
+plt.show()
+
+#计算各个社区的节点数
+# 使用Counter来计算每个社区的节点数量
+community_sizes = Counter(partition.values())
+
+# 打印结果
+for community_id, size in community_sizes.items():
+    print(f"Community {community_id} has {size} nodes.")
+
+# （可选）可视化网络
+# 使用spring布局算法进行节点布局
+pos = nx.spring_layout(G)
+nx.draw(G, pos, with_labels=False, node_size=50, edge_color='gray')
+plt.axis('off')  # 关闭坐标轴
+plt.show()
