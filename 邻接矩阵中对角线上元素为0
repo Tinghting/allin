@@ -1,0 +1,20 @@
+
+import pandas as pd
+
+# 读取CSV文件
+df = pd.read_csv('binary_values.csv', header=None)  # 假设没有标题行
+
+# 检查数据形状是否为方阵（即行数和列数相同）
+if df.shape[0] != df.shape[1]:
+    raise ValueError("CSV文件中的数据不是一个方阵，无法视为邻接矩阵")
+
+# 将对角线上的值设置为0
+n = df.shape[0]  # 获取矩阵的大小（行数和列数）
+for i in range(n):
+    df.iloc[i, i] = 0  # 将对角线上的值设置为0
+
+# 如果需要，将修改后的DataFrame保存回CSV文件
+df.to_csv('modified_adjacency_matrix.csv', header=False, index=False)  # 不包含标题和索引
+
+# 显示修改后的数据
+print(df)
